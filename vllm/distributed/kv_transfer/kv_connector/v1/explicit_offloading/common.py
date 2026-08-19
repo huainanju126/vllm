@@ -124,16 +124,17 @@ class ExKVCacheContext:
     def _check_segments(self):
         prev_end = self._segments[0].token_start
         for i, seg in enumerate(self._segments):
-            if seg.token_start % self._block_size != 0:
+            # A segment may start mid-block only when its predecessor ended
+            # mid-block (a partial block is saved whole, so the next fresh
+            # range begins inside it); the first segment is free either way.
+            if (
+                seg.token_start % self._block_size != 0
+                and i > 0
+                and prev_end % self._block_size == 0
+            ):
                 raise ValueError(
-                    f"Segment {i} token_start must be a multiple of block_size, "
-                    f"got {seg.token_start}"
-                )
-
-            if seg.token_length % self._block_size != 0:
-                raise ValueError(
-                    f"Segment {i} token_length must be a multiple of block_size, "
-                    f"got {seg.token_length}"
+                    f"Segment {i} token_start must be aligned to block_size, "
+                    f"got {seg.token_start} after aligned end {prev_end}"
                 )
 
             if seg.token_start != prev_end:
@@ -190,7 +191,10 @@ class ExKVCacheContext:
             return None
 
         return self._block_ids[
-            self.token_start // self._block_size : self.token_end // self._block_size
+            self.token_start // self._block_size : (
+                self.token_end + self._block_size - 1
+            )
+            // self._block_size
         ]
 
     def result(self, tp_size: int = 1, use_mla: bool = False) -> list[dict]:
@@ -297,11 +301,6 @@ class ExKVCacheContext:
         if not self._segments:
             return self
 
-        if offset % self._block_size != 0:
-            raise ValueError(
-                f"offset ({offset}) must be aligned to block size ({self._block_size})"
-            )
-
         if offset <= self.token_start:
             return self.reset()
 
@@ -345,7 +344,7 @@ class ExKVCacheContext:
         assert self._block_ids is not None
 
         block_start = seg.token_start // self._block_size
-        block_end = seg.token_end // self._block_size
+        block_end = (seg.token_end + self._block_size - 1) // self._block_size
         block_ids = self._block_ids[block_start:block_end]
 
         storage, path = ExOffloadingStorageManager.get_storage_by_uri(
@@ -368,7 +367,7 @@ class ExKVCacheContext:
 
         for seg in self._segments:
             block_start = seg.token_start // self._block_size
-            block_end = seg.token_end // self._block_size
+            block_end = (seg.token_end + self._block_size - 1) // self._block_size
             block_ids = self._block_ids[block_start:block_end]
 
             storage, path = ExOffloadingStorageManager.get_storage_by_uri(

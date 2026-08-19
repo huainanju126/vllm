@@ -13,7 +13,6 @@ from vllm.distributed.kv_transfer.kv_connector.v1.explicit_offloading.common imp
     ExOffloadingRequestContext,
 )
 from vllm.logger import init_logger
-from vllm.utils.math_utils import round_down
 from vllm.v1.core.kv_cache_manager import KVCacheBlocks
 from vllm.v1.core.sched.output import SchedulerOutput
 from vllm.v1.kv_cache_interface import KVCacheConfig
@@ -176,8 +175,10 @@ class ExOffloadingConnectorScheduler:
             params.fresh_kvcache, block_size=self._block_size
         )
 
-        num_tokens_aligned = round_down(request.num_tokens, self._block_size)
-        fresh_exkvcache.truncate_suffix(num_tokens_aligned)
+        # The fresh range ends at the exact token count; a trailing partial
+        # block is saved whole (its garbage tail is masked by sequence
+        # length) so short turns are not lost from the KV chain.
+        fresh_exkvcache.truncate_suffix(request.num_tokens)
         fresh_exkvcache.bind_block_ids(block_ids)
         fresh_exkvcache.update_kv_layout(kv_length_per_token=self._kv_bytes_per_token)
 
