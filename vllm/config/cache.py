@@ -188,6 +188,11 @@ class CacheConfig:
     'native' (vLLM native CPU offloading), 'lmcache'.
     KV offloading is only activated when kv_offloading_size is set."""
 
+    @property
+    def prefix_match_unit(self) -> int | None:
+        """Alias for hash_block_size used by vllm-metal plugin."""
+        return self.hash_block_size
+
     def compute_hash(self) -> str:
         """
         WARNING: Whenever a new field is added to this config,

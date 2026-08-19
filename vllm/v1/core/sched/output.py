@@ -244,6 +244,10 @@ class SchedulerOutput:
     # Number of spec tokens to schedule for the next step.
     num_spec_tokens_to_schedule: int = 0
 
+    # KV cache block copy operations for prefix caching / KV transfer.
+    # Used by vllm-metal plugin.
+    kv_cache_block_copies: list | None = None
+
     @classmethod
     def make_empty(cls) -> "SchedulerOutput":
         return cls(
