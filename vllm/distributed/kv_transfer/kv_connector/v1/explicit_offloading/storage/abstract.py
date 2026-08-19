@@ -138,6 +138,16 @@ def get_mem_tensors(
 
 
 def copy_data_h2d(host_data: torch.Tensor, data: list[torch.Tensor]):
+    if not torch.cuda.is_available():
+        # CPU-only backends (e.g. the vLLM CPU platform on macOS/x86): copy
+        # synchronously without a CUDA stream.
+        off = 0
+        for d in data:
+            df = d.flatten()
+            n = df.numel()
+            df.copy_(host_data[off : off + n])
+            off += n
+        return
     stream = torch.cuda.Stream()
     with torch.cuda.stream(stream):
         off = 0
@@ -150,6 +160,15 @@ def copy_data_h2d(host_data: torch.Tensor, data: list[torch.Tensor]):
 
 
 def copy_data_d2h(data: list[torch.Tensor], host_data: torch.Tensor):
+    if not torch.cuda.is_available():
+        # CPU-only backends: synchronous copy, no CUDA stream.
+        off = 0
+        for d in data:
+            df = d.flatten()
+            n = df.numel()
+            host_data[off : off + n].copy_(df)
+            off += n
+        return
     stream = torch.cuda.Stream()
     with torch.cuda.stream(stream):
         off = 0
