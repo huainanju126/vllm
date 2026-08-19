@@ -428,9 +428,11 @@ class TransferTopology:
             logger.debug("Test kv_cache_shape: %s", kv_cache_shape)
         # Non-MLA backends caches have 5 dims [num_blocks, 2, H,N,D],
         # we just mock num_blocks to 1 for the dimension check below.
+        # The CPU backend caches 4 dims [num_blocks, H, N, 2D] with K/V
+        # interleaved in the last dim, also blocks_first.
         # Hybrid SSM models assume a single blocks_first layout
         self._is_kv_layout_blocks_first = self.is_mamba or (
-            len(kv_cache_shape) == 5 and kv_cache_shape[0] == 1
+            len(kv_cache_shape) in (4, 5) and kv_cache_shape[0] == 1
         )
 
         self._cross_layers_blocks = False
